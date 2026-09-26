@@ -1,0 +1,36 @@
+name: HumanAtlas
+options:
+  bundleIdPrefix: com.louisyoong
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  HumanAtlas:
+    type: application
+    platform: iOS
+    sources:
+      - path: HumanAtlas
+    resources:
+      - path: HumanAtlas/Resources
+      - path: HumanAtlas/Assets.xcassets
+    info:
+      path: HumanAtlas/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIRequiresFullScreen: false
+        CFBundleDisplayName: Human Atlas
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.louisyoong.humanatlas
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_STRICT_CONCURRENCY: complete
+        ENABLE_PREVIEWS: YES

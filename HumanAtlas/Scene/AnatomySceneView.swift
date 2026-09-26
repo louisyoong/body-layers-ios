@@ -1,0 +1,241 @@
+import SceneKit
+import SwiftUI
+import simd
+
+final class OrbitSCNView: SCNView {
+    var onLayout: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+}
+
+struct AnatomySceneView: UIViewRepresentable {
+    @ObservedObject var viewModel: AnatomyViewModel
+
+    func makeCoordinator() -> SceneCoordinator {
+        SceneCoordinator(viewModel: viewModel)
+    }
+
+    func makeUIView(context: Context) -> OrbitSCNView {
+        let scnView = OrbitSCNView()
+        context.coordinator.setup(scnView: scnView)
+        return scnView
+    }
+
+    func updateUIView(_ uiView: OrbitSCNView, context: Context) {
+        // State changes are pushed imperatively through `viewModel.sceneController`.
+    }
+}
+
+@MainActor
+final class SceneCoordinator: NSObject, SceneControlling {
+    private let viewModel: AnatomyViewModel
+    private weak var scnView: SCNView?
+    private let scene = SCNScene()
+    private let cameraNode = SCNNode()
+
+    private var target = SIMD3<Float>(0, 0.85, 0)
+    private var radius: Float = 2.4
+    private var yaw: Float = 0.12
+    private var pitch: Float = 0.2
+    private var lastPanTranslation: CGPoint = .zero
+
+    init(viewModel: AnatomyViewModel) {
+        self.viewModel = viewModel
+    }
+
+    func setup(scnView: OrbitSCNView) {
+        self.scnView = scnView
+        scnView.scene = scene
+        scnView.backgroundColor = UIColor(hex: "#101820")
+        scnView.rendersContinuously = true
+        scnView.antialiasingMode = .multisampling4X
+        scnView.isUserInteractionEnabled = true
+
+        let camera = SCNCamera()
+        camera.fieldOfView = 35
+        camera.zNear = 0.005
+        camera.zFar = 100
+        cameraNode.camera = camera
+        scene.rootNode.addChildNode(cameraNode)
+        updateCameraTransform()
+
+        setupLighting()
+        scene.rootNode.addChildNode(viewModel.rootAnatomyNode)
+
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        scnView.addGestureRecognizer(pan)
+        scnView.addGestureRecognizer(pinch)
+        scnView.addGestureRecognizer(tap)
+
+        scnView.onLayout = { [weak self] in
+            guard let self else { return }
+            self.frame(view: self.viewModel.currentView, focusSelected: self.viewModel.isolated)
+        }
+
+        viewModel.sceneController = self
+    }
+
+    private func setupLighting() {
+        let ambient = SCNLight()
+        ambient.type = .ambient
+        ambient.color = UIColor(hex: "#a9b0a0")
+        ambient.intensity = 350
+        let ambientNode = SCNNode()
+        ambientNode.light = ambient
+        scene.rootNode.addChildNode(ambientNode)
+
+        let key = SCNLight()
+        key.type = .directional
+        key.intensity = 1300
+        key.color = UIColor.white
+        let keyNode = SCNNode()
+        keyNode.light = key
+        keyNode.position = SCNVector3(-3, 4, 5)
+        keyNode.look(at: SCNVector3(0, 0.85, 0))
+        scene.rootNode.addChildNode(keyNode)
+
+        let fill = SCNLight()
+        fill.type = .directional
+        fill.intensity = 800
+        fill.color = UIColor.white
+        let fillNode = SCNNode()
+        fillNode.light = fill
+        fillNode.position = SCNVector3(3, 2, -3)
+        fillNode.look(at: SCNVector3(0, 0.85, 0))
+        scene.rootNode.addChildNode(fillNode)
+
+        scene.lightingEnvironment.contents = UIColor(white: 0.55, alpha: 1)
+    }
+
+    private func updateCameraTransform() {
+        let cosPitch = cos(pitch)
+        let x = target.x + radius * cosPitch * sin(yaw)
+        let y = target.y + radius * sin(pitch)
+        let z = target.z + radius * cosPitch * cos(yaw)
+        let position = SIMD3<Float>(x, y, z)
+        cameraNode.position = SCNVector3(position)
+        cameraNode.simdOrientation = Self.lookAtOrientation(from: position, target: target)
+    }
+
+    /// Builds an absolute look-at orientation instead of using `SCNNode.look(at:)`,
+    /// which derives an *incremental* rotation from the node's current orientation
+    /// and produces a degenerate (zero) quaternion when the new direction is exactly
+    /// 180° from the old one (e.g. flipping from the "front" to the "back" view).
+    private static func lookAtOrientation(from position: SIMD3<Float>, target: SIMD3<Float>) -> simd_quatf {
+        let forward = simd_normalize(target - position)
+        var worldUp = SIMD3<Float>(0, 1, 0)
+        if abs(simd_dot(forward, worldUp)) > 0.999 {
+            worldUp = SIMD3<Float>(0, 0, 1)
+        }
+        let right = simd_normalize(simd_cross(forward, worldUp))
+        let up = simd_cross(right, forward)
+        let rotationMatrix = simd_float3x3(columns: (right, up, -forward))
+        return simd_quatf(rotationMatrix)
+    }
+
+    // MARK: - Gestures
+
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            lastPanTranslation = .zero
+        case .changed:
+            let t = gesture.translation(in: gesture.view)
+            let dx = Float(t.x - lastPanTranslation.x)
+            let dy = Float(t.y - lastPanTranslation.y)
+            yaw -= dx * 0.006
+            pitch = min(max(pitch - dy * 0.006, -1.4), 1.4)
+            updateCameraTransform()
+            lastPanTranslation = t
+        default:
+            lastPanTranslation = .zero
+        }
+    }
+
+    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        guard gesture.state == .changed else { return }
+        radius = min(max(radius / Float(gesture.scale), 0.05), 12)
+        gesture.scale = 1
+        updateCameraTransform()
+    }
+
+    @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+        guard let scnView else { return }
+        let point = gesture.location(in: scnView)
+        let hitResults = scnView.hitTest(point, options: [
+            .searchMode: SCNHitTestSearchMode.all.rawValue,
+            .ignoreHiddenNodes: true,
+            .backFaceCulling: false,
+        ])
+        for hit in hitResults {
+            guard let name = hit.node.name else { continue }
+            if viewModel.system(withId: name) == "integumentary" { continue }
+            viewModel.handleTap(partId: name)
+            return
+        }
+    }
+
+    // MARK: - SceneControlling
+
+    func frame(view: CameraViewDirection, focusSelected: Bool) {
+        guard let scnView else { return }
+        let nodes: [SCNNode]
+        if focusSelected, let id = viewModel.selectedPartId, let n = viewModel.node(for: id) {
+            nodes = [n]
+        } else {
+            nodes = viewModel.visibleNodes
+        }
+
+        var lo = SIMD3<Float>(repeating: .greatestFiniteMagnitude)
+        var hi = SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
+        var found = false
+        for n in nodes {
+            guard let geo = n.geometry else { continue }
+            let box = geo.boundingBox
+            let p = n.position.simd
+            lo = simd_min(lo, box.min.simd + p)
+            hi = simd_max(hi, box.max.simd + p)
+            found = true
+        }
+
+        let center = found ? (lo + hi) * 0.5 : target
+        let size = found ? (hi - lo) : SIMD3<Float>(0.7, 1.8, 0.4)
+
+        let fovRadians = Float(cameraNode.camera?.fieldOfView ?? 35) * .pi / 180
+        let bounds = scnView.bounds
+        let aspect: Float = bounds.height > 0 ? Float(bounds.width / bounds.height) : 1
+        let distance = max(
+            0.06,
+            max(size.x / min(aspect, 1), max(size.y, size.z)) / (2 * tan(fovRadians / 2)) * 1.3
+        )
+
+        let dir: SIMD3<Float>
+        switch view {
+        case .back: dir = SIMD3<Float>(0, 0, -1)
+        case .side: dir = SIMD3<Float>(1, 0, 0)
+        case .front: dir = simd_normalize(SIMD3<Float>(0.12, 0.015, 1))
+        }
+
+        target = center
+        let position = target + dir * distance
+        cameraNode.position = SCNVector3(position)
+        cameraNode.simdOrientation = Self.lookAtOrientation(from: position, target: target)
+
+        let rel = position - target
+        radius = simd_length(rel)
+        if radius > 0.0001 {
+            yaw = atan2(rel.x, rel.z)
+            pitch = asin(min(max(rel.y / radius, -1), 1))
+        }
+    }
+
+    func zoom(by factor: Float) {
+        radius = min(max(radius * factor, 0.05), 12)
+        updateCameraTransform()
+    }
+}
