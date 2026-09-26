@@ -3,6 +3,9 @@ import SwiftUI
 struct DetailCardView: View {
     @ObservedObject var viewModel: AnatomyViewModel
     let detail: SelectedDetail
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -20,10 +23,10 @@ struct DetailCardView: View {
             }
             Text(detail.partName)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
             Text(detail.copy)
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(theme.secondaryText)
             Text("STRUCTURE ID \(detail.partId)")
                 .font(.caption2.monospaced())
                 .foregroundStyle(.secondary)
@@ -45,14 +48,14 @@ struct DetailCardView: View {
                         .font(.subheadline.weight(.semibold))
                         .padding(.vertical, 10)
                         .padding(.horizontal, 16)
-                        .background(Capsule().fill(Color.white.opacity(0.12)))
-                        .foregroundStyle(.white)
+                        .background(Capsule().fill(theme.chipFill))
+                        .foregroundStyle(theme.primaryText)
                 }
             }
         }
         .padding(16)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.white.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(theme.hairline))
         .padding(.horizontal, 16)
     }
 }

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ViewControlsBar: View {
     @ObservedObject var viewModel: AnatomyViewModel
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -16,10 +19,10 @@ struct ViewControlsBar: View {
                             .padding(.vertical, 6)
                             .background(
                                 Capsule().fill(viewModel.currentView == direction
-                                    ? Color.white.opacity(0.9)
-                                    : Color.white.opacity(0.1))
+                                    ? theme.selectedFill
+                                    : theme.chipFill)
                             )
-                            .foregroundStyle(viewModel.currentView == direction ? .black : .white)
+                            .foregroundStyle(viewModel.currentView == direction ? theme.selectedText : theme.primaryText)
                     }
                 }
                 Spacer()
@@ -33,7 +36,7 @@ struct ViewControlsBar: View {
                     Image(systemName: "arrow.counterclockwise")
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(theme.primaryText)
             .buttonStyle(.plain)
 
             HStack(spacing: 10) {
@@ -57,7 +60,7 @@ struct ViewControlsBar: View {
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(theme.hairline))
         .padding(.horizontal, 16)
     }
 }

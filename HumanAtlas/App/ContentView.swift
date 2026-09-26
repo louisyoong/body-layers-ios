@@ -3,7 +3,10 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var viewModel = AnatomyViewModel()
     @State private var showLayers = false
-    @State private var showAbout = false
+    @State private var showSettings = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
 
     var body: some View {
         ZStack {
@@ -33,8 +36,8 @@ struct ContentView: View {
         .sheet(isPresented: $showLayers) {
             LayersSheetView(viewModel: viewModel)
         }
-        .sheet(isPresented: $showAbout) {
-            AboutSheetView()
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
         .task {
             await viewModel.load()
@@ -48,23 +51,23 @@ struct ContentView: View {
                     .font(.headline.weight(.bold))
                 Text("3D ANATOMY EXPLORER")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.secondaryText)
             }
             Spacer()
-            Button {
-                showAbout = true
-            } label: {
-                Image(systemName: "info.circle")
-                    .font(.title3)
-            }
             Button {
                 showLayers = true
             } label: {
                 Image(systemName: "square.3.layers.3d")
                     .font(.title3)
             }
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.title3)
+            }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(theme.primaryText)
         .padding(.horizontal, 16)
         .padding(.top, 8)
     }

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct CategoryStripView: View {
     @ObservedObject var viewModel: AnatomyViewModel
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -25,7 +28,7 @@ struct CategoryStripView: View {
                         .background(
                             Capsule().fill(category.id == viewModel.currentCategoryId
                                 ? Color.cyan.opacity(0.25)
-                                : Color.black.opacity(0.35))
+                                : theme.panelFill)
                         )
                         .overlay(
                             Capsule().stroke(
@@ -35,7 +38,7 @@ struct CategoryStripView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 }
             }
             .padding(.horizontal, 16)

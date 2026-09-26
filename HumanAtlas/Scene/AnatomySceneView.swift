@@ -13,6 +13,7 @@ final class OrbitSCNView: SCNView {
 
 struct AnatomySceneView: UIViewRepresentable {
     @ObservedObject var viewModel: AnatomyViewModel
+    @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> SceneCoordinator {
         SceneCoordinator(viewModel: viewModel)
@@ -21,11 +22,15 @@ struct AnatomySceneView: UIViewRepresentable {
     func makeUIView(context: Context) -> OrbitSCNView {
         let scnView = OrbitSCNView()
         context.coordinator.setup(scnView: scnView)
+        context.coordinator.applyTheme(AppTheme(colorScheme: colorScheme))
         return scnView
     }
 
     func updateUIView(_ uiView: OrbitSCNView, context: Context) {
-        // State changes are pushed imperatively through `viewModel.sceneController`.
+        // Most state changes are pushed imperatively through `viewModel.sceneController`;
+        // the color scheme is the one input this representable reads directly, since it
+        // drives the viewport background/lighting rather than the anatomy itself.
+        context.coordinator.applyTheme(AppTheme(colorScheme: colorScheme))
     }
 }
 
@@ -42,6 +47,7 @@ final class SceneCoordinator: NSObject, SceneControlling {
     private var pitch: Float = 0.2
     private var lastPanTranslation: CGPoint = .zero
     private var lastPanTranslation2: CGPoint = .zero
+    private var ambientLight: SCNLight?
 
     init(viewModel: AnatomyViewModel) {
         self.viewModel = viewModel
@@ -86,11 +92,21 @@ final class SceneCoordinator: NSObject, SceneControlling {
         viewModel.sceneController = self
     }
 
+    /// Applies the current Light/Dark setting to the viewport itself — the background
+    /// behind the anatomy and its ambient fill — while leaving each system's tissue
+    /// color (bone, muscle, vessels, etc.) untouched, since those encode meaning.
+    func applyTheme(_ theme: AppTheme) {
+        scnView?.backgroundColor = UIColor(hex: theme.sceneBackgroundHex)
+        ambientLight?.color = UIColor(hex: theme.ambientLightHex)
+        ambientLight?.intensity = theme.ambientLightIntensity
+    }
+
     private func setupLighting() {
         let ambient = SCNLight()
         ambient.type = .ambient
         ambient.color = UIColor(hex: "#a9b0a0")
         ambient.intensity = 350
+        ambientLight = ambient
         let ambientNode = SCNNode()
         ambientNode.light = ambient
         scene.rootNode.addChildNode(ambientNode)

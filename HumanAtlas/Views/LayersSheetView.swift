@@ -34,38 +34,52 @@ struct LayersSheetView: View {
 
                 Section {
                     if viewModel.showInternalViewButton {
-                        Button("Reveal inside the heart") {
+                        Button {
                             viewModel.revealHeartInterior()
+                        } label: {
+                            Label("Reveal inside the heart", systemImage: "heart.text.square")
                         }
                     }
                 } header: {
                     HStack {
                         Text(viewModel.layerTitle)
                         Spacer()
-                        Button(viewModel.toggleAllLabel) {
+                        Button {
                             viewModel.toggleAll()
+                        } label: {
+                            Text(viewModel.toggleAllLabel)
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.secondary.opacity(0.15)))
                         }
-                        .font(.footnote)
                     }
                 }
 
                 Section {
                     ForEach(viewModel.systems, id: \.id) { system in
+                        let isOn = viewModel.visibleSystemIds.contains(system.id)
                         Button {
                             viewModel.toggleSystem(system.id)
                         } label: {
-                            HStack {
+                            HStack(spacing: 12) {
                                 Circle()
                                     .fill(Color(UIColor(hex: system.colorHex)))
-                                    .frame(width: 10, height: 10)
+                                    .frame(width: 14, height: 14)
+                                    .opacity(isOn ? 1 : 0.3)
                                 Text(system.name)
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(isOn ? .primary : .secondary)
                                 Spacer()
-                                Image(systemName: viewModel.visibleSystemIds.contains(system.id) ? "circle.fill" : "circle")
-                                    .foregroundStyle(.secondary)
-                                    .font(.caption)
+                                Image(systemName: isOn ? "eye.fill" : "eye.slash")
+                                    .foregroundStyle(isOn ? Color.cyan : Color.secondary.opacity(0.6))
+                                    .font(.body)
+                                    .frame(width: 22)
                             }
+                            .padding(.vertical, 2)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .listRowBackground(isOn ? Color.cyan.opacity(0.08) : Color.clear)
                     }
                 }
 

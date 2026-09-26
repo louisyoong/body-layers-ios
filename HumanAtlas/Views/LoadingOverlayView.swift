@@ -2,15 +2,18 @@ import SwiftUI
 
 struct LoadingOverlayView: View {
     @ObservedObject var viewModel: AnatomyViewModel
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.92).ignoresSafeArea()
+            theme.scrim.ignoresSafeArea()
             VStack(spacing: 16) {
                 if let error = viewModel.loadError {
                     Text("Unable to load the 3D atlas")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                     Text(error)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -26,7 +29,7 @@ struct LoadingOverlayView: View {
                         .tint(.cyan)
                     Text("Preparing your atlas")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                     Text("\(Int(viewModel.loadingProgress * 100))% · Loading anatomical structures")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
