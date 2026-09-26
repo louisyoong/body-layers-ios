@@ -44,9 +44,9 @@ struct ContentView: View {
     private var topBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("HUMAN ATLAS")
+                Text("BODY LAYERS")
                     .font(.headline.weight(.bold))
-                Text("ANATOMY EXPLORER")
+                Text("3D ANATOMY EXPLORER")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

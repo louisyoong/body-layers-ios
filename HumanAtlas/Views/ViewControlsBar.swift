@@ -45,7 +45,10 @@ struct ViewControlsBar: View {
                         get: { viewModel.explosion },
                         set: { viewModel.setExplosion($0) }
                     ),
-                    in: 0...1
+                    in: 0...1,
+                    onEditingChanged: { editing in
+                        viewModel.explosionEditingChanged(editing)
+                    }
                 )
                 Text("Separated")
                     .font(.caption2)

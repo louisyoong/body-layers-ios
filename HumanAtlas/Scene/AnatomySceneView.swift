@@ -41,6 +41,7 @@ final class SceneCoordinator: NSObject, SceneControlling {
     private var yaw: Float = 0.12
     private var pitch: Float = 0.2
     private var lastPanTranslation: CGPoint = .zero
+    private var lastPanTranslation2: CGPoint = .zero
 
     init(viewModel: AnatomyViewModel) {
         self.viewModel = viewModel
@@ -66,9 +67,14 @@ final class SceneCoordinator: NSObject, SceneControlling {
         scene.rootNode.addChildNode(viewModel.rootAnatomyNode)
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        pan.maximumNumberOfTouches = 1
+        let twoFingerPan = UIPanGestureRecognizer(target: self, action: #selector(handleTwoFingerPan(_:)))
+        twoFingerPan.minimumNumberOfTouches = 2
+        twoFingerPan.maximumNumberOfTouches = 2
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         scnView.addGestureRecognizer(pan)
+        scnView.addGestureRecognizer(twoFingerPan)
         scnView.addGestureRecognizer(pinch)
         scnView.addGestureRecognizer(tap)
 
@@ -154,6 +160,35 @@ final class SceneCoordinator: NSObject, SceneControlling {
             lastPanTranslation = t
         default:
             lastPanTranslation = .zero
+        }
+    }
+
+    /// Two-finger drag shifts the orbit target (pivot) itself, so users can recenter
+    /// the view on a specific area — e.g. the head — instead of being stuck orbiting
+    /// and zooming around whatever point was framed initially.
+    @objc private func handleTwoFingerPan(_ gesture: UIPanGestureRecognizer) {
+        guard let scnView else { return }
+        switch gesture.state {
+        case .began:
+            lastPanTranslation2 = .zero
+        case .changed:
+            let t = gesture.translation(in: gesture.view)
+            let dx = Float(t.x - lastPanTranslation2.x)
+            let dy = Float(t.y - lastPanTranslation2.y)
+
+            let fovRadians = Float(cameraNode.camera?.fieldOfView ?? 35) * .pi / 180
+            let viewHeight = Float(scnView.bounds.height)
+            guard viewHeight > 0 else { return }
+            let worldUnitsPerPoint = (2 * radius * tan(fovRadians / 2)) / viewHeight
+
+            let right = cameraNode.simdWorldRight
+            let up = cameraNode.simdWorldUp
+            target -= right * (dx * worldUnitsPerPoint)
+            target += up * (dy * worldUnitsPerPoint)
+            updateCameraTransform()
+            lastPanTranslation2 = t
+        default:
+            lastPanTranslation2 = .zero
         }
     }
 

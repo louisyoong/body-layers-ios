@@ -27,7 +27,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIRequiresFullScreen: false
-        CFBundleDisplayName: Human Atlas
+        CFBundleDisplayName: "Body Layers"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.louisyoong.humanatlas

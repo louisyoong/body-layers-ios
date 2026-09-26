@@ -61,6 +61,17 @@ final class AnatomyViewModel: ObservableObject {
     private var categorySize: Float = 1.8
     private var loadedPartsCount = 0
 
+    /// Per-visible-part "at full explosion" offset, cached whenever visibility/grouping
+    /// changes so that dragging the explode slider is a cheap O(visible) loop with no
+    /// dictionary lookups or set/array scans — the expensive `updateVisibilityAndTransforms`
+    /// pass only needs to re-run when what's visible actually changes, not on every tick.
+    private struct ExplosionOffset {
+        let node: SCNNode
+        let offset: SIMD3<Float>
+    }
+    private var explosionOffsets: [ExplosionOffset] = []
+    private var isDraggingExplosion = false
+
     var toggleAllLabel: String { visibleSystemIds.isEmpty ? "Show all" : "Hide all" }
 
     // MARK: - Loading
@@ -201,7 +212,15 @@ final class AnatomyViewModel: ObservableObject {
 
     private func updateVisibilityAndTransforms() {
         guard let atlas else { return }
-        let explosionF = Float(explosion)
+
+        // Systems only has a handful of entries, but `firstIndex` inside the 2234-part
+        // loop below still adds up — resolve it once per system id instead.
+        var systemIndexById: [String: Int] = [:]
+        for (i, s) in systems.enumerated() { systemIndexById[s.id] = i }
+        let systemCount = max(systems.count, 1)
+
+        var newOffsets: [ExplosionOffset] = []
+        newOffsets.reserveCapacity(atlas.parts.count)
 
         SCNTransaction.begin()
         SCNTransaction.animationDuration = 0.15
@@ -215,18 +234,44 @@ final class AnatomyViewModel: ObservableObject {
             let visible = inc && (isolated ? isSelected : (visibleSystemIds.contains(g) || isSelected))
             node.isHidden = !visible
             if visible {
-                let idx = systems.firstIndex { $0.id == g } ?? 0
-                let angle = Float(idx) / Float(max(systems.count, 1)) * 2 * Float.pi
+                let idx = systemIndexById[g] ?? 0
+                let angle = Float(idx) / Float(systemCount) * 2 * Float.pi
                 let center = part.center
-                let x = sin(angle) * explosionF * categorySize * 0.65
-                let y = (center.y - categoryCenter.y) * explosionF * 0.85
-                let z = cos(angle) * explosionF * categorySize * 0.65
-                node.position = SCNVector3(SIMD3<Float>(x, y, z))
+                let offset = SIMD3<Float>(
+                    sin(angle) * categorySize * 0.65,
+                    (center.y - categoryCenter.y) * 0.85,
+                    cos(angle) * categorySize * 0.65
+                )
+                newOffsets.append(ExplosionOffset(node: node, offset: offset))
             }
             node.geometry?.firstMaterial?.emission.contents = isSelected ? GeometryBuilder.highlightColor : UIColor.black
         }
 
+        explosionOffsets = newOffsets
+        let explosionF = Float(explosion)
+        for item in explosionOffsets {
+            item.node.position = SCNVector3(item.offset * explosionF)
+        }
+
         SCNTransaction.commit()
+    }
+
+    /// Cheap path for live-dragging the explode slider: no visibility/grouping work,
+    /// just scales the cached per-part offsets — safe as long as what's visible hasn't
+    /// changed since the last `updateVisibilityAndTransforms` call.
+    private func applyExplosionOffsets(animated: Bool) {
+        let explosionF = Float(explosion)
+        if animated {
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = 0.08
+            SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .linear)
+        }
+        for item in explosionOffsets {
+            item.node.position = SCNVector3(item.offset * explosionF)
+        }
+        if animated {
+            SCNTransaction.commit()
+        }
     }
 
     // MARK: - Selection
@@ -298,9 +343,27 @@ final class AnatomyViewModel: ObservableObject {
 
     func setExplosion(_ value: Double) {
         explosion = value
-        isolated = false
-        updateVisibilityAndTransforms()
-        sceneController?.frame(view: currentView, focusSelected: false)
+        if isolated {
+            isolated = false
+            updateVisibilityAndTransforms()
+        } else {
+            applyExplosionOffsets(animated: true)
+        }
+        // Re-framing walks every visible node's bounding box — too costly to do on
+        // every intermediate tick while the slider is actively being dragged, so it's
+        // deferred to `explosionEditingChanged` once the gesture actually ends.
+        if !isDraggingExplosion {
+            sceneController?.frame(view: currentView, focusSelected: false)
+        }
+    }
+
+    /// Hook up to the explode `Slider`'s `onEditingChanged` so the expensive camera
+    /// re-frame only happens once, when the user lifts their finger — not on every tick.
+    func explosionEditingChanged(_ isEditing: Bool) {
+        isDraggingExplosion = isEditing
+        if !isEditing {
+            sceneController?.frame(view: currentView, focusSelected: false)
+        }
     }
 
     func setViewDirection(_ direction: CameraViewDirection) {

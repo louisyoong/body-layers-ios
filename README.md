@@ -1,4 +1,4 @@
-# Human Atlas — Anatomy Explorer (iOS)
+# Body Layers: 3D Anatomy (iOS)
 
 A native SwiftUI + SceneKit port of the [Human Atlas Organs](https://human-altas-organs-louis.vercel.app/) web app ([source](https://github.com/louisyoong/human-altas-organ)). Explore the full body or focus on a single organ system, isolate structures, explode the layers apart, and inspect anatomical detail — all rendered natively on-device from the same [BodyParts3D](https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html) mesh data the web app uses.
 
