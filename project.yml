@@ -7,7 +7,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "M9VG7M352C"
     CODE_SIGN_STYLE: Automatic
 targets:
   HumanAtlas:
@@ -26,7 +26,7 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        UIRequiresFullScreen: false
+        UIRequiresFullScreen: true
         CFBundleDisplayName: "Body Layers"
     settings:
       base:
