@@ -27,8 +27,10 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("appearanceMode") private var appearanceModeRaw: String = AppearanceMode.dark.rawValue
 
-    // TODO: replace with the real numeric App Store ID once the app is published.
-    private let appStoreID = "0000000000"
+    private let appStoreID = "6816426498"
+    // Flip to true once the app is actually live on the App Store — until then the
+    // review link 404s, so keep the row hidden rather than show a dead link.
+    private let isPublishedOnAppStore = false
     private let websiteURL = URL(string: "https://human-altas-organs-louis.vercel.app")!
     private let dataLicenseURL = URL(string: "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html")!
 
@@ -82,10 +84,12 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button {
-                        rateOnAppStore()
-                    } label: {
-                        Label("Rate on the App Store", systemImage: "star.fill")
+                    if isPublishedOnAppStore {
+                        Button {
+                            rateOnAppStore()
+                        } label: {
+                            Label("Rate on the App Store", systemImage: "star.fill")
+                        }
                     }
                     externalLinkRow("Visit Our Website", url: websiteURL, systemImage: "safari")
                 }
