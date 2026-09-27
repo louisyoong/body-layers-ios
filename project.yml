@@ -28,6 +28,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         UIRequiresFullScreen: true
         CFBundleDisplayName: "Body Layers"
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.louisyoong.humanatlas
