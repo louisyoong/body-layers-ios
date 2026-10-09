@@ -29,12 +29,14 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         UIRequiresFullScreen: true
         CFBundleDisplayName: "Body Layers"
-        CFBundleShortVersionString: "2.0.0"
-        CFBundleVersion: "4"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.louisyoong.humanatlas
+        MARKETING_VERSION: "2.0.0"
+        CURRENT_PROJECT_VERSION: "4"
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_STRICT_CONCURRENCY: complete
         ENABLE_PREVIEWS: YES
