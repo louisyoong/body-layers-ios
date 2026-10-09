@@ -3,3 +3,4 @@ xcuserdata/
 DerivedData/
 *.xcuserstate
 HumanAtlas.xcodeproj/
+build/
