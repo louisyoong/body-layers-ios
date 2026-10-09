@@ -32,6 +32,7 @@ struct SettingsView: View {
     // review link 404s, so keep the row hidden rather than show a dead link.
     private let isPublishedOnAppStore = false
     private let websiteURL = URL(string: "https://human-altas-organs-louis.vercel.app")!
+    private let noaaURL = URL(string: "https://www.fisheries.noaa.gov/species-directory")!
     private let dataLicenseURL = URL(string: "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html")!
 
     private var appVersion: String {
@@ -55,7 +56,7 @@ struct SettingsView: View {
                     .listRowSeparator(.hidden)
                 }
 
-                Section("About This Atlas") {
+                Section("Human Atlas") {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("A body, revealed.")
                             .font(.headline)
@@ -65,6 +66,19 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 4)
+                }
+
+                Section("Animal Atlas") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Whales, inside and out.")
+                            .font(.headline)
+                        Text("Explore six whale species — blue, humpback, sperm, orca, beluga and gray — with a see-through body, tappable organs and species field notes.")
+                        Text("The 3D whales are simplified educational models: organ shapes, positions and proportions are schematic, not anatomical scans. Illustrations and species references are credited to NOAA Fisheries.")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+                    externalLinkRow("NOAA Fisheries Species Directory", url: noaaURL)
                 }
 
                 Section("About This App") {

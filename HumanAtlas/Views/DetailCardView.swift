@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct DetailCardView: View {
-    @ObservedObject var viewModel: AnatomyViewModel
+struct DetailCardView<Model: AtlasViewModel>: View {
+    @ObservedObject var viewModel: Model
     let detail: SelectedDetail
     @Environment(\.colorScheme) private var colorScheme
 
@@ -27,9 +27,11 @@ struct DetailCardView: View {
             Text(detail.copy)
                 .font(.footnote)
                 .foregroundStyle(theme.secondaryText)
-            Text("STRUCTURE ID \(detail.partId)")
-                .font(.caption2.monospaced())
-                .foregroundStyle(.secondary)
+            if let idLabel = detail.idLabel {
+                Text(idLabel)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+            }
             HStack(spacing: 12) {
                 Button {
                     viewModel.toggleIsolate()

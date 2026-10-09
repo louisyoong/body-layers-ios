@@ -12,7 +12,7 @@ final class OrbitSCNView: SCNView {
 }
 
 struct AnatomySceneView: UIViewRepresentable {
-    @ObservedObject var viewModel: AnatomyViewModel
+    let viewModel: any AtlasViewModel
     @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> SceneCoordinator {
@@ -36,7 +36,7 @@ struct AnatomySceneView: UIViewRepresentable {
 
 @MainActor
 final class SceneCoordinator: NSObject, SceneControlling {
-    private let viewModel: AnatomyViewModel
+    private let viewModel: any AtlasViewModel
     private weak var scnView: SCNView?
     private let scene = SCNScene()
     private let cameraNode = SCNNode()
@@ -49,7 +49,7 @@ final class SceneCoordinator: NSObject, SceneControlling {
     private var lastPanTranslation2: CGPoint = .zero
     private var ambientLight: SCNLight?
 
-    init(viewModel: AnatomyViewModel) {
+    init(viewModel: any AtlasViewModel) {
         self.viewModel = viewModel
     }
 
@@ -224,9 +224,9 @@ final class SceneCoordinator: NSObject, SceneControlling {
             .backFaceCulling: false,
         ])
         for hit in hitResults {
-            guard let name = hit.node.name else { continue }
-            if viewModel.system(withId: name) == "integumentary" { continue }
-            viewModel.handleTap(partId: name)
+            guard let name = hit.node.name,
+                  let partId = viewModel.tappablePartId(forNodeName: name) else { continue }
+            viewModel.handleTap(partId: partId)
             return
         }
     }
@@ -257,20 +257,24 @@ final class SceneCoordinator: NSObject, SceneControlling {
         let center = found ? (lo + hi) * 0.5 : target
         let size = found ? (hi - lo) : SIMD3<Float>(0.7, 1.8, 0.4)
 
+        let dir = viewModel.cameraDirection(for: view)
+
+        // Measure the box as seen from `dir` (not just its x/y extents), so long
+        // horizontal subjects like the whale frame correctly from every preset.
+        var worldUp = SIMD3<Float>(0, 1, 0)
+        if abs(simd_dot(dir, worldUp)) > 0.999 { worldUp = SIMD3<Float>(0, 0, 1) }
+        let right = simd_normalize(simd_cross(worldUp, dir))
+        let up = simd_cross(dir, right)
+        let width = simd_dot(simd_abs(right), size)
+        let height = simd_dot(simd_abs(up), size)
+
         let fovRadians = Float(cameraNode.camera?.fieldOfView ?? 35) * .pi / 180
         let bounds = scnView.bounds
         let aspect: Float = bounds.height > 0 ? Float(bounds.width / bounds.height) : 1
         let distance = max(
             0.06,
-            max(size.x / min(aspect, 1), max(size.y, size.z)) / (2 * tan(fovRadians / 2)) * 1.3
+            max(width / min(aspect, 1), height) / (2 * tan(fovRadians / 2)) * 1.3
         )
-
-        let dir: SIMD3<Float>
-        switch view {
-        case .back: dir = SIMD3<Float>(0, 0, -1)
-        case .side: dir = SIMD3<Float>(1, 0, 0)
-        case .front: dir = simd_normalize(SIMD3<Float>(0.12, 0.015, 1))
-        }
 
         target = center
         let position = target + dir * distance

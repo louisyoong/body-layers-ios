@@ -10,10 +10,12 @@ struct SelectedDetail: Equatable {
     let partName: String
     let copy: String
     let partId: String
+    /// Small monospaced caption under the description, e.g. "STRUCTURE ID FJ2417".
+    var idLabel: String? = nil
 }
 
 @MainActor
-final class AnatomyViewModel: ObservableObject {
+final class AnatomyViewModel: AtlasViewModel {
     // Static system palettes shown immediately, mirroring the web app's
     // module-level `systems`/`visible` constants that render before data loads.
     @Published var systems: [BodySystem] = BodySystems.all
@@ -60,6 +62,7 @@ final class AnatomyViewModel: ObservableObject {
     private var categoryCenter = SIMD3<Float>(0, 0.85, 0)
     private var categorySize: Float = 1.8
     private var loadedPartsCount = 0
+    private var isLoading = false
 
     /// Per-visible-part "at full explosion" offset, cached whenever visibility/grouping
     /// changes so that dragging the explode slider is a cheap O(visible) loop with no
@@ -76,7 +79,17 @@ final class AnatomyViewModel: ObservableObject {
 
     // MARK: - Loading
 
+    /// Safe to call every time the human atlas appears: the decoded geometry is kept,
+    /// so returning from the study picker doesn't re-inflate 33MB of meshes.
     func load() async {
+        guard !isLoaded, !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+        loadError = nil
+        loadedPartsCount = 0
+        loadingProgress = 0
+        for node in nodesById.values { node.removeFromParentNode() }
+        nodesById = [:]
         do {
             let (atlas, catalog) = try AtlasLoader.loadCatalog()
             self.atlas = atlas
@@ -285,7 +298,8 @@ final class AnatomyViewModel: ObservableObject {
             systemName: sys?.name ?? "",
             partName: part.name,
             copy: sys?.info ?? "",
-            partId: part.id
+            partId: part.id,
+            idLabel: "STRUCTURE ID \(part.id)"
         )
         updateVisibilityAndTransforms()
         if isolated {
@@ -372,9 +386,6 @@ final class AnatomyViewModel: ObservableObject {
         sceneController?.frame(view: direction, focusSelected: isolated)
     }
 
-    func zoomIn() { sceneController?.zoom(by: 0.8) }
-    func zoomOut() { sceneController?.zoom(by: 1.25) }
-
     // MARK: - Search
 
     private func performSearch() {
@@ -417,7 +428,16 @@ final class AnatomyViewModel: ObservableObject {
         nodesById[partId]
     }
 
-    func system(withId id: String) -> String? {
-        partsById[id]?.system
+    func tappablePartId(forNodeName name: String) -> String? {
+        guard let part = partsById[name], part.system != "integumentary" else { return nil }
+        return part.id
+    }
+
+    func cameraDirection(for view: CameraViewDirection) -> SIMD3<Float> {
+        switch view {
+        case .back: return SIMD3<Float>(0, 0, -1)
+        case .side: return SIMD3<Float>(1, 0, 0)
+        case .front: return simd_normalize(SIMD3<Float>(0.12, 0.015, 1))
+        }
     }
 }

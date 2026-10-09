@@ -1,75 +1,31 @@
 import SwiftUI
 
-struct ContentView: View {
-    @StateObject private var viewModel = AnatomyViewModel()
-    @State private var showLayers = false
-    @State private var showSettings = false
-    @Environment(\.colorScheme) private var colorScheme
+enum StudyCategory: Hashable {
+    case human, animal
+}
 
-    private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
+/// Root: the study-category picker, then the chosen atlas. Both atlas view models
+/// live here so their loaded geometry survives switching back and forth.
+struct ContentView: View {
+    @StateObject private var humanViewModel = AnatomyViewModel()
+    @StateObject private var animalViewModel = AnimalAtlasViewModel()
+    @State private var category: StudyCategory?
 
     var body: some View {
         ZStack {
-            AnatomySceneView(viewModel: viewModel)
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                topBar
-                CategoryStripView(viewModel: viewModel)
-                    .padding(.top, 8)
-
-                Spacer()
-
-                VStack(spacing: 12) {
-                    if let detail = viewModel.selectedDetail {
-                        DetailCardView(viewModel: viewModel, detail: detail)
-                    }
-                    ViewControlsBar(viewModel: viewModel)
-                }
-                .padding(.bottom, 8)
-            }
-
-            if !viewModel.isLoaded {
-                LoadingOverlayView(viewModel: viewModel)
+            switch category {
+            case nil:
+                StudyPickerView { category = $0 }
+                    .transition(.opacity)
+            case .human:
+                HumanAtlasView(viewModel: humanViewModel) { category = nil }
+                    .transition(.move(edge: .trailing))
+            case .animal:
+                AnimalAtlasView(viewModel: animalViewModel) { category = nil }
+                    .transition(.move(edge: .trailing))
             }
         }
-        .sheet(isPresented: $showLayers) {
-            LayersSheetView(viewModel: viewModel)
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-        }
-        .task {
-            await viewModel.load()
-        }
-    }
-
-    private var topBar: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("BODY LAYERS")
-                    .font(.headline.weight(.bold))
-                Text("3D ANATOMY EXPLORER")
-                    .font(.caption2)
-                    .foregroundStyle(theme.secondaryText)
-            }
-            Spacer()
-            Button {
-                showLayers = true
-            } label: {
-                Image(systemName: "square.3.layers.3d")
-                    .font(.title3)
-            }
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.title3)
-            }
-        }
-        .foregroundStyle(theme.primaryText)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .animation(.easeInOut(duration: 0.25), value: category)
     }
 }
 

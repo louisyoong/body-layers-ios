@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct ViewControlsBar: View {
-    @ObservedObject var viewModel: AnatomyViewModel
+struct ViewControlsBar<Model: AtlasViewModel>: View {
+    @ObservedObject var viewModel: Model
     @Environment(\.colorScheme) private var colorScheme
 
     private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
