@@ -21,15 +21,16 @@ targets:
     info:
       path: HumanAtlas/Info.plist
       properties:
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIRequiresFullScreen: true
         CFBundleDisplayName: "Body Layers"
-        CFBundleShortVersionString: "1.1.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "2.0.0"
+        CFBundleVersion: "4"
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
