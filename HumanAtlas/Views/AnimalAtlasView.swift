@@ -42,6 +42,7 @@ struct AnimalAtlasView: View {
         .sheet(isPresented: $showSpeciesInfo) {
             SpeciesInfoView(species: viewModel.currentSpecies)
         }
+        .edgeSwipeBack(perform: onBack)
         .onAppear {
             viewModel.loadIfNeeded()
         }
@@ -49,11 +50,7 @@ struct AnimalAtlasView: View {
 
     private var topBar: some View {
         HStack(spacing: 14) {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.title3.weight(.semibold))
-            }
-            .accessibilityLabel("Back to study categories")
+            AtlasBackButton(action: onBack)
             VStack(alignment: .leading, spacing: 2) {
                 Text("ANIMAL ATLAS")
                     .font(.headline.weight(.bold))

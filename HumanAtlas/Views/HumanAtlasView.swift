@@ -32,26 +32,36 @@ struct HumanAtlasView: View {
 
             if !viewModel.isLoaded {
                 LoadingOverlayView(viewModel: viewModel)
+                // Keep a way out while the atlas loads; the overlay covers the top bar.
+                VStack {
+                    HStack {
+                        AtlasBackButton(action: onBack)
+                        Spacer()
+                    }
+                    .foregroundStyle(theme.primaryText)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    Spacer()
+                }
             }
         }
+        .edgeSwipeBack(perform: onBack)
         .sheet(isPresented: $showLayers) {
             LayersSheetView(viewModel: viewModel)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
-        .task {
-            await viewModel.load()
+        .onAppear {
+            // Unstructured so leaving mid-load doesn't cancel it; `load()` no-ops if
+            // already loading or loaded.
+            Task { await viewModel.load() }
         }
     }
 
     private var topBar: some View {
         HStack {
-            Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.title3.weight(.semibold))
-            }
-            .accessibilityLabel("Back to study categories")
+            AtlasBackButton(action: onBack)
             VStack(alignment: .leading, spacing: 2) {
                 Text("HUMAN ATLAS")
                     .font(.headline.weight(.bold))
