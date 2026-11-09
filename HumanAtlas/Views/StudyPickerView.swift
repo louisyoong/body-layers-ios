@@ -5,7 +5,9 @@ struct StudyPickerView: View {
     let onSelect: (StudyCategory) -> Void
     @State private var showSettings = false
     @State private var fold: FoldInfo?
-    @State private var layoutWidth: CGFloat = 0
+    /// The scroll view's frame on screen: the width the cards actually have, which on
+    /// iPhone Duo excludes the vertical status/toolbar column.
+    @State private var contentFrame: CGRect = .zero
     @Environment(\.colorScheme) private var colorScheme
 
     private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
@@ -14,6 +16,9 @@ struct StudyPickerView: View {
         ZStack {
             Color(UIColor(hex: theme.sceneBackgroundHex))
                 .ignoresSafeArea()
+                // Inactive too: the crease position decides the column split even while
+                // the device is flat, so the layout doesn't jump when someone folds it.
+                .onFoldChange(includeInactive: true) { fold = $0 }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -31,11 +36,8 @@ struct StudyPickerView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 32)
             }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { contentFrame = $0 }
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { layoutWidth = $0 }
-        // Inactive too: the crease position decides the column split even while the
-        // device is flat, so the layout doesn't jump when someone starts to fold it.
-        .onFoldChange(includeInactive: true) { fold = $0 }
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
@@ -85,16 +87,20 @@ struct StudyPickerView: View {
     private static let horizontalPadding: CGFloat = 20
 
     private var twoColumnWidths: (leading: CGFloat, trailing: CGFloat, gap: CGFloat)? {
-        guard layoutWidth >= 600 else { return nil }
-        let content = layoutWidth - Self.horizontalPadding * 2
+        // Each card needs ~340pt for its title, subtitle and artwork to sit side by side
+        // without truncating, so narrower screens (iPhone Duo's inner display held upright
+        // is 669pt) keep a single column.
+        guard contentFrame.width >= 760 else { return nil }
+        let contentMinX = contentFrame.minX + Self.horizontalPadding
+        let content = contentFrame.width - Self.horizontalPadding * 2
         var gap: CGFloat = 16
         var leading = (content - gap) / 2
-        if let fold, fold.isVertical {
+        if let fold, fold.isVertical, fold.crease.midX > contentMinX, fold.crease.midX < contentMinX + content {
             gap = fold.crease.width + 32
-            leading = fold.crease.minX - 16 - Self.horizontalPadding
+            leading = fold.crease.minX - 16 - contentMinX
         }
         let trailing = content - leading - gap
-        guard leading >= 240, trailing >= 240 else { return nil }
+        guard leading >= 340, trailing >= 340 else { return nil }
         return (leading, trailing, gap)
     }
 

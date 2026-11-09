@@ -11,19 +11,18 @@ struct HumanAtlasView: View {
 
     var body: some View {
         ZStack {
-            FoldAwareAtlasLayout {
-                AnatomySceneView(viewModel: viewModel)
+            FoldAwareAtlasLayout { framingInsets in
+                AnatomySceneView(viewModel: viewModel, framingInsets: framingInsets)
             } header: {
                 topBar
                 CategoryStripView(viewModel: viewModel)
                     .padding(.top, 8)
-            } panel: {
-                VStack(spacing: 12) {
-                    if let detail = viewModel.selectedDetail {
-                        DetailCardView(viewModel: viewModel, detail: detail)
-                    }
-                    ViewControlsBar(viewModel: viewModel)
+            } detail: {
+                if let detail = viewModel.selectedDetail {
+                    DetailCardView(viewModel: viewModel, detail: detail)
                 }
+            } controls: {
+                ViewControlsBar(viewModel: viewModel)
             }
 
             if !viewModel.isLoaded {

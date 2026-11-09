@@ -11,8 +11,8 @@ struct AnimalAtlasView: View {
 
     var body: some View {
         ZStack {
-            FoldAwareAtlasLayout {
-                AnatomySceneView(viewModel: viewModel)
+            FoldAwareAtlasLayout { framingInsets in
+                AnatomySceneView(viewModel: viewModel, framingInsets: framingInsets)
             } header: {
                 topBar
                 speciesStrip
@@ -23,13 +23,12 @@ struct AnimalAtlasView: View {
                         .tint(.cyan)
                         .padding(.top, 24)
                 }
-            } panel: {
-                VStack(spacing: 12) {
-                    if let detail = viewModel.selectedDetail {
-                        DetailCardView(viewModel: viewModel, detail: detail)
-                    }
-                    ViewControlsBar(viewModel: viewModel)
+            } detail: {
+                if let detail = viewModel.selectedDetail {
+                    DetailCardView(viewModel: viewModel, detail: detail)
                 }
+            } controls: {
+                ViewControlsBar(viewModel: viewModel)
             }
         }
         .sheet(isPresented: $showLayers) {
@@ -115,6 +114,8 @@ struct AnimalAtlasView: View {
                 }
                 .padding(.horizontal, 16)
             }
+            // Keep chips out from under the Dynamic Island / iPhone Duo's status column.
+            .clipped()
             .onAppear {
                 proxy.scrollTo(viewModel.currentSpecies.id, anchor: .center)
             }

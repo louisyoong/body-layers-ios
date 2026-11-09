@@ -13,6 +13,8 @@ final class OrbitSCNView: SCNView {
 
 struct AnatomySceneView: UIViewRepresentable {
     let viewModel: any AtlasViewModel
+    /// How much of the view the header and controls cover; the model is framed in what's left.
+    var framingInsets = EdgeInsets()
     @Environment(\.colorScheme) private var colorScheme
 
     func makeCoordinator() -> SceneCoordinator {
@@ -21,6 +23,7 @@ struct AnatomySceneView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> OrbitSCNView {
         let scnView = OrbitSCNView()
+        context.coordinator.framingInsets = framingInsets
         context.coordinator.setup(scnView: scnView)
         context.coordinator.applyTheme(AppTheme(colorScheme: colorScheme))
         return scnView
@@ -31,6 +34,7 @@ struct AnatomySceneView: UIViewRepresentable {
         // the color scheme is the one input this representable reads directly, since it
         // drives the viewport background/lighting rather than the anatomy itself.
         context.coordinator.applyTheme(AppTheme(colorScheme: colorScheme))
+        context.coordinator.updateFramingInsets(framingInsets)
     }
 }
 
@@ -48,6 +52,7 @@ final class SceneCoordinator: NSObject, SceneControlling {
     private var lastPanTranslation: CGPoint = .zero
     private var lastPanTranslation2: CGPoint = .zero
     private var ambientLight: SCNLight?
+    var framingInsets = EdgeInsets()
 
     init(viewModel: any AtlasViewModel) {
         self.viewModel = viewModel
@@ -233,6 +238,13 @@ final class SceneCoordinator: NSObject, SceneControlling {
 
     // MARK: - SceneControlling
 
+    /// Re-frames when the overlays' footprint changes (rotation, folding, first layout).
+    func updateFramingInsets(_ insets: EdgeInsets) {
+        guard insets != framingInsets else { return }
+        framingInsets = insets
+        frame(view: viewModel.currentView, focusSelected: viewModel.isolated)
+    }
+
     func frame(view: CameraViewDirection, focusSelected: Bool) {
         guard let scnView else { return }
         let nodes: [SCNNode]
@@ -271,12 +283,30 @@ final class SceneCoordinator: NSObject, SceneControlling {
         let fovRadians = Float(cameraNode.camera?.fieldOfView ?? 35) * .pi / 180
         let bounds = scnView.bounds
         let aspect: Float = bounds.height > 0 ? Float(bounds.width / bounds.height) : 1
+
+        // Fit the model into the part of the view the overlays leave uncovered.
+        let insets = framingInsets
+        let visibleWidth = max(1, bounds.width - insets.leading - insets.trailing)
+        let visibleHeight = max(1, bounds.height - insets.top - insets.bottom)
+        let widthFraction = bounds.width > 0 ? Float(visibleWidth / bounds.width) : 1
+        let heightFraction = bounds.height > 0 ? Float(visibleHeight / bounds.height) : 1
         let distance = max(
             0.06,
-            max(width / min(aspect, 1), height) / (2 * tan(fovRadians / 2)) * 1.3
+            max(width / (min(aspect, 1) * widthFraction), height / heightFraction)
+                / (2 * tan(fovRadians / 2)) * 1.3
         )
 
-        target = center
+        // Then shift the look-at point so the model sits in the middle of that visible
+        // area instead of the middle of the whole view.
+        var lookAt = center
+        if bounds.height > 0 {
+            let worldPerPoint = 2 * distance * tan(fovRadians / 2) / Float(bounds.height)
+            let dx = Float(insets.leading - insets.trailing) / 2 * worldPerPoint
+            let dy = Float(insets.top - insets.bottom) / 2 * worldPerPoint
+            lookAt = center - right * dx + up * dy
+        }
+
+        target = lookAt
         let position = target + dir * distance
         cameraNode.position = SCNVector3(position)
         cameraNode.simdOrientation = Self.lookAtOrientation(from: position, target: target)

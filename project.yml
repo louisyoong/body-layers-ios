@@ -47,3 +47,29 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_STRICT_CONCURRENCY: complete
         ENABLE_PREVIEWS: YES
+  HumanAtlasUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: HumanAtlasUITests
+    dependencies:
+      - target: HumanAtlas
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.louisyoong.humanatlas.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: HumanAtlas
+        TARGETED_DEVICE_FAMILY: "1,2"
+schemes:
+  HumanAtlas:
+    build:
+      targets:
+        HumanAtlas: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - HumanAtlasUITests
+    archive:
+      config: Release

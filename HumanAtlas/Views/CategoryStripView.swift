@@ -43,5 +43,8 @@ struct CategoryStripView: View {
             }
             .padding(.horizontal, 16)
         }
+        // Scroll views draw past the safe area along their axis; clip so chips don't slide
+        // under the Dynamic Island in landscape or iPhone Duo's vertical status column.
+        .clipped()
     }
 }
