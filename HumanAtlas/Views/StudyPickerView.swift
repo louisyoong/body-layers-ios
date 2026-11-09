@@ -4,6 +4,8 @@ import SwiftUI
 struct StudyPickerView: View {
     let onSelect: (StudyCategory) -> Void
     @State private var showSettings = false
+    @State private var fold: FoldInfo?
+    @State private var layoutWidth: CGFloat = 0
     @Environment(\.colorScheme) private var colorScheme
 
     private var theme: AppTheme { AppTheme(colorScheme: colorScheme) }
@@ -18,37 +20,82 @@ struct StudyPickerView: View {
                     header
                         .padding(.bottom, 12)
 
-                    categoryCard(
-                        index: "01",
-                        title: "Human",
-                        subtitle: "Adult anatomy from the BodyParts3D reference.",
-                        tags: ["2,234 structures", "15 body systems", "9 organ views"],
-                        imageName: "StudyHuman"
-                    ) { onSelect(.human) }
-
-                    categoryCard(
-                        index: "02",
-                        title: "Animal",
-                        subtitle: "Whales of the world, inside and out.",
-                        tags: ["6 whale species", "11 body parts", "Field notes"],
-                        imageName: "StudyAnimal"
-                    ) { onSelect(.animal) }
-
-                    comingSoonCard
+                    cards
 
                     Text("Simplified models and colors support exploration. For education, not diagnosis.")
                         .font(.caption)
                         .foregroundStyle(theme.secondaryText)
                         .padding(.top, 8)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, Self.horizontalPadding)
                 .padding(.top, 12)
                 .padding(.bottom, 32)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { layoutWidth = $0 }
+        // Inactive too: the crease position decides the column split even while the
+        // device is flat, so the layout doesn't jump when someone starts to fold it.
+        .onFoldChange(includeInactive: true) { fold = $0 }
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
+    }
+
+    private var humanCard: some View {
+        categoryCard(
+            index: "01",
+            title: "Human",
+            subtitle: "Adult anatomy from the BodyParts3D reference.",
+            tags: ["2,234 structures", "15 body systems", "9 organ views"],
+            imageName: "StudyHuman"
+        ) { onSelect(.human) }
+    }
+
+    private var animalCard: some View {
+        categoryCard(
+            index: "02",
+            title: "Animal",
+            subtitle: "Whales of the world, inside and out.",
+            tags: ["6 whale species", "11 body parts", "Field notes"],
+            imageName: "StudyAnimal"
+        ) { onSelect(.animal) }
+    }
+
+    /// One column on phones; two side by side on wide screens such as iPhone Duo's
+    /// inner display, with the gap between them straddling the fold.
+    @ViewBuilder private var cards: some View {
+        if let columns = twoColumnWidths {
+            Grid(alignment: .topLeading, horizontalSpacing: columns.gap, verticalSpacing: 16) {
+                GridRow {
+                    humanCard.frame(width: columns.leading)
+                    animalCard.frame(width: columns.trailing)
+                }
+                GridRow {
+                    comingSoonCard.frame(width: columns.leading)
+                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                }
+            }
+        } else {
+            humanCard
+            animalCard
+            comingSoonCard
+        }
+    }
+
+    private static let horizontalPadding: CGFloat = 20
+
+    private var twoColumnWidths: (leading: CGFloat, trailing: CGFloat, gap: CGFloat)? {
+        guard layoutWidth >= 600 else { return nil }
+        let content = layoutWidth - Self.horizontalPadding * 2
+        var gap: CGFloat = 16
+        var leading = (content - gap) / 2
+        if let fold, fold.isVertical {
+            gap = fold.crease.width + 32
+            leading = fold.crease.minX - 16 - Self.horizontalPadding
+        }
+        let trailing = content - leading - gap
+        guard leading >= 240, trailing >= 240 else { return nil }
+        return (leading, trailing, gap)
     }
 
     private var header: some View {
@@ -170,7 +217,7 @@ struct StudyPickerView: View {
                 }
             }
             .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(theme.hairline))
             .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
