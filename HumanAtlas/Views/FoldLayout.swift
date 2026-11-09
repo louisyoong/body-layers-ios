@@ -103,18 +103,38 @@ struct FoldAwareAtlasLayout<SceneContent: View, Header: View, Detail: View, Cont
 
     private static var maxPanelWidth: CGFloat { 600 }
     /// Width of the card and of the controls when they sit side by side (padding included).
-    private static var sidePanelWidth: CGFloat { 380 }
+    private static var sidePanelWidth: CGFloat { 370 }
 
     private var measuredControls: some View {
         controls
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { controlsFrame = $0 }
     }
 
-    /// Side by side needs room for both columns plus a gap. Book pose keeps the stacked
-    /// panel, since it already has the whole trailing pane to itself.
-    private var usesSideBySidePanel: Bool {
-        if let fold, fold.isVertical { return false }
-        return overlayFrame.width >= Self.sidePanelWidth * 2 - 60
+    /// Short, wide screens (a phone in landscape, iPad, iPhone Duo open): stacking the
+    /// card on the controls would bury the model, so they share one row along the bottom.
+    /// Its ideal width is always two full columns, card or not, so `ViewThatFits` only
+    /// picks it when both genuinely fit.
+    private var sideBySidePanel: some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                Color.clear.frame(width: Self.sidePanelWidth, height: 1)
+                detail.frame(width: Self.sidePanelWidth)
+            }
+            Spacer(minLength: 0)
+            measuredControls
+                .frame(width: Self.sidePanelWidth)
+        }
+        .padding(.bottom, 8)
+    }
+
+    private var stackedPanel: some View {
+        VStack(spacing: 12) {
+            detail
+            measuredControls
+        }
+        .frame(maxWidth: panelWidth)
+        .frame(maxWidth: .infinity, alignment: panelAlignment)
+        .padding(.bottom, 8)
     }
 
     var body: some View {
@@ -136,26 +156,16 @@ struct FoldAwareAtlasLayout<SceneContent: View, Header: View, Detail: View, Cont
                 VStack(spacing: 0) { header }
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { headerFrame = $0 }
                 Spacer(minLength: 0)
-                if usesSideBySidePanel {
-                    // Short, wide screens (a phone in landscape, iPad, iPhone Duo open):
-                    // stacking the card on the controls would bury the model, so they
-                    // share one row along the bottom instead.
-                    HStack(alignment: .bottom, spacing: 0) {
-                        detail
-                            .frame(maxWidth: Self.sidePanelWidth, alignment: .bottomLeading)
-                        Spacer(minLength: 0)
-                        measuredControls
-                            .frame(width: Self.sidePanelWidth)
-                    }
-                    .padding(.bottom, 8)
+                if let fold, fold.isVertical {
+                    // Book pose: the trailing pane is the panel's own column.
+                    stackedPanel
                 } else {
-                    VStack(spacing: 12) {
-                        detail
-                        measuredControls
+                    // Picked from the width offered right now, so it can't go stale when
+                    // the window resizes (rotation, iPhone Duo opening or closing).
+                    ViewThatFits(in: .horizontal) {
+                        sideBySidePanel
+                        stackedPanel
                     }
-                    .frame(maxWidth: panelWidth)
-                    .frame(maxWidth: .infinity, alignment: panelAlignment)
-                    .padding(.bottom, 8)
                 }
             }
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { overlayFrame = $0 }

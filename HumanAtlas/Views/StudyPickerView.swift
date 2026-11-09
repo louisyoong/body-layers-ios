@@ -65,19 +65,8 @@ struct StudyPickerView: View {
 
     /// One column on phones; two side by side on wide screens such as iPhone Duo's
     /// inner display, with the gap between them straddling the fold.
-    @ViewBuilder private var cards: some View {
-        if let columns = twoColumnWidths {
-            Grid(alignment: .topLeading, horizontalSpacing: columns.gap, verticalSpacing: 16) {
-                GridRow {
-                    humanCard.frame(width: columns.leading)
-                    animalCard.frame(width: columns.trailing)
-                }
-                GridRow {
-                    comingSoonCard.frame(width: columns.leading)
-                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
-                }
-            }
-        } else {
+    private var cards: some View {
+        StudyCardsLayout(foldSplit: foldSplit) {
             humanCard
             animalCard
             comingSoonCard
@@ -86,22 +75,16 @@ struct StudyPickerView: View {
 
     private static let horizontalPadding: CGFloat = 20
 
-    private var twoColumnWidths: (leading: CGFloat, trailing: CGFloat, gap: CGFloat)? {
-        // Each card needs ~340pt for its title, subtitle and artwork to sit side by side
-        // without truncating, so narrower screens (iPhone Duo's inner display held upright
-        // is 669pt) keep a single column.
-        guard contentFrame.width >= 760 else { return nil }
+    /// Where the fold wants the column gap, relative to the cards' leading edge. Only a
+    /// hint: `StudyCardsLayout` ignores it unless it fits the width it's actually given,
+    /// so a stale measurement after the window resizes can't push cards off-screen.
+    private var foldSplit: StudyCardsLayout.Split? {
+        guard let fold, fold.isVertical, contentFrame.width > 0 else { return nil }
         let contentMinX = contentFrame.minX + Self.horizontalPadding
-        let content = contentFrame.width - Self.horizontalPadding * 2
-        var gap: CGFloat = 16
-        var leading = (content - gap) / 2
-        if let fold, fold.isVertical, fold.crease.midX > contentMinX, fold.crease.midX < contentMinX + content {
-            gap = fold.crease.width + 32
-            leading = fold.crease.minX - 16 - contentMinX
-        }
-        let trailing = content - leading - gap
-        guard leading >= 340, trailing >= 340 else { return nil }
-        return (leading, trailing, gap)
+        return StudyCardsLayout.Split(
+            leading: fold.crease.minX - 16 - contentMinX,
+            gap: fold.crease.width + 32
+        )
     }
 
     private var header: some View {
@@ -223,7 +206,7 @@ struct StudyPickerView: View {
                 }
             }
             .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(theme.hairline))
             .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -236,4 +219,82 @@ struct StudyPickerView: View {
 
 #Preview {
     StudyPickerView { _ in }
+}
+
+/// Lays out the three study cards in one column, or in two (Human | Animal, then
+/// Coming soon) when there's room. The choice is made from the width offered during
+/// layout itself, so it is always right for the current window, including the moment
+/// iPhone Duo switches between its inner and outer displays.
+private struct StudyCardsLayout: Layout {
+    struct Split: Equatable {
+        var leading: CGFloat
+        var gap: CGFloat
+    }
+
+    var foldSplit: Split?
+    var spacing: CGFloat = 16
+    /// Each card needs ~340pt for its title, subtitle and artwork to sit side by side
+    /// without truncating, so anything narrower than two of those stays one column
+    /// (iPhone Duo's inner display held upright is 669pt).
+    var minColumnWidth: CGFloat = 340
+
+    private func columns(for width: CGFloat) -> (leading: CGFloat, trailing: CGFloat, gap: CGFloat)? {
+        if let split = foldSplit {
+            let trailing = width - split.leading - split.gap
+            if split.leading >= minColumnWidth, trailing >= minColumnWidth {
+                return (split.leading, trailing, split.gap)
+            }
+        }
+        let equal = (width - spacing) / 2
+        guard equal >= minColumnWidth else { return nil }
+        return (equal, equal, spacing)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+        return arrange(width: width, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (subview, frame) in zip(subviews, arrange(width: bounds.width, subviews: subviews).frames) {
+            subview.place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                // Width only: the card picks its own height, as it would in a VStack.
+                proposal: ProposedViewSize(width: frame.width, height: nil)
+            )
+        }
+    }
+
+    private func measuredHeight(_ subview: LayoutSubview, width: CGFloat) -> CGFloat {
+        subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> (size: CGSize, frames: [CGRect]) {
+        var frames: [CGRect] = []
+        guard let columns = columns(for: width), subviews.count == 3 else {
+            var y: CGFloat = 0
+            for subview in subviews {
+                let height = measuredHeight(subview, width: width)
+                frames.append(CGRect(x: 0, y: y, width: width, height: height))
+                y += height + spacing
+            }
+            return (CGSize(width: width, height: max(0, y - spacing)), frames)
+        }
+
+        func height(_ index: Int, _ columnWidth: CGFloat) -> CGFloat {
+            measuredHeight(subviews[index], width: columnWidth)
+        }
+        // Each card keeps its own height (proposing a taller one than it measured can
+        // squeeze its text); the second row starts below the taller of the two.
+        let leadingHeight = height(0, columns.leading)
+        let trailingHeight = height(1, columns.trailing)
+        let rowHeight = max(leadingHeight, trailingHeight)
+        let trailingX = columns.leading + columns.gap
+        frames.append(CGRect(x: 0, y: 0, width: columns.leading, height: leadingHeight))
+        frames.append(CGRect(x: trailingX, y: 0, width: columns.trailing, height: trailingHeight))
+        let secondRowY = rowHeight + spacing
+        let lastHeight = height(2, columns.leading)
+        frames.append(CGRect(x: 0, y: secondRowY, width: columns.leading, height: lastHeight))
+        return (CGSize(width: width, height: secondRowY + lastHeight), frames)
+    }
 }
